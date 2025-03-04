@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>한글 자음 하이라이터</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1000px;
+            gap: 20px;
+        }
+        .settings, .text-area {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .settings {
+            width: 30%;
+        }
+        .text-area {
+            width: 70%;
+        }
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            resize: vertical;
+        }
+        .preview {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            min-height: 200px;
+            white-space: pre-wrap;
+        }
+        .highlight-red {
+            background-color: rgba(255, 0, 0, 0.3);
+        }
+        .highlight-blue {
+            background-color: rgba(0, 0, 255, 0.3);
+        }
+        .settings-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        button {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .checkmark {
+            color: green;
+            margin-right: 3px;
+            font-weight: bold;
+        }
+        .word {
+            position: relative;
+            display: inline-block;
+            margin-right: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>한글 자음 하이라이터</h1>
+
+    <div class="container">
+        <div class="settings">
+            <h2>설정</h2>
+
+            <div class="settings-group">
+                <label>
+                    <input type="checkbox" id="redHighlightEnabled" checked>
+                    'ㅏ' 빨간색 하이라이트 활성화
+                </label>
+            </div>
+
+            <div class="settings-group">
+                <label>
+                    <input type="checkbox" id="blueHighlightEnabled" checked>
+                    'ㄴ,ㄹ,ㅇ,ㅁ' 파란색 하이라이트 활성화
+                </label>
+            </div>
+
+        </div>
+
+        <div class="text-area">
+            <h2>텍스트 입력</h2>
+            <textarea id="inputText" placeholder="여기에 한글 텍스트를 입력하세요...">안녕하세요. 오늘은 날씨가 참 좋네요. 바람이 살랑살랑 불어서 기분이 상쾌합니다. 모두가 행복한 하루 되세요!</textarea>
+            <button id="processBtn">처리하기</button>
+
+            <h2>미리보기</h2>
+            <div id="preview" class="preview"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputText = document.getElementById('inputText');
+            const preview = document.getElementById('preview');
+            const processBtn = document.getElementById('processBtn');
+            const exportBtn = document.getElementById('exportBtn');
+            const redHighlightEnabled = document.getElementById('redHighlightEnabled');
+            const blueHighlightEnabled = document.getElementById('blueHighlightEnabled');
+
+            // 초기 처리
+            processText();
+
+            // 처리하기 버튼 클릭 이벤트
+            processBtn.addEventListener('click', processText);
+
+            // 텍스트 처리 함수
+            function processText() {
+                const text = inputText.value;
+                const words = text.split(/\s+/);
+
+                preview.innerHTML = '';
+
+                words.forEach(word => {
+                    if (word.length === 0) return;
+
+                    const wordSpan = document.createElement('span');
+                    wordSpan.className = 'word';
+
+                    // 단어 처리
+                    for (let i = 0; i < word.length; i++) {
+                        const char = word[i];
+                        const charSpan = document.createElement('span');
+                        charSpan.textContent = char;
+
+                        // 한글 자모 분리 (유니코드 활용)
+                        if (/[가-힣]/.test(char)) {
+                            const code = char.charCodeAt(0) - 0xAC00;
+
+                            // 초성, 중성, 종성 분리
+                            const jong = code % 28;
+                            const jung = ((code - jong) / 28) % 21;
+
+                            // 중성이 'ㅏ'인 경우 (유니코드에서 'ㅏ'는 첫 번째 중성)
+                            if (jung === 0 && redHighlightEnabled.checked) {
+                                charSpan.className = 'highlight-red';
+                            }
+
+                            // 종성이 'ㄴ', 'ㄹ', 'ㅇ', 'ㅁ'인 경우
+                            // 종성 코드: ㄴ=4, ㄹ=8, ㅁ=16, ㅇ=21
+                            if ((jong === 4 || jong === 8 || jong === 16 || jong === 21) && blueHighlightEnabled.checked) {
+                                charSpan.className = 'highlight-blue';
+                            }
+                        }
+
+                        wordSpan.appendChild(charSpan);
+                    }
+
+                    // 단어 클릭 이벤트
+					wordSpan.addEventListener('click', function() {
+						const existingCheckmark = this.querySelector('.checkmark');
+						if (existingCheckmark) {
+							this.removeChild(existingCheckmark);
+						} else {
+							const checkmark = document.createElement('span');
+							checkmark.className = 'checkmark';
+							checkmark.textContent = '✓';
+							this.insertBefore(checkmark, this.firstChild);
+						}
+					});
+
+                    preview.appendChild(wordSpan);
+                    preview.appendChild(document.createTextNode(' '));
+                });
+            }
+
+        });
+    </script>
+</body>
+</html>
