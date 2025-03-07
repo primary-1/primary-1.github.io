@@ -111,7 +111,9 @@
 
         <div class="text-area">
             <h2>텍스트 입력</h2>
-            <textarea id="inputText" placeholder="여기에 한글 텍스트를 입력하세요...">안녕하세요. 오늘은 날씨가 참 좋네요. 바람이 살랑살랑 불어서 기분이 상쾌합니다. 모두가 행복한 하루 되세요!</textarea>
+            <textarea id="inputText" placeholder="여기에 한글 텍스트를 입력하세요...">안녕하세요. 오늘은 날씨가 참 좋네요.
+바람이 살랑살랑 불어서 기분이 상쾌합니다.
+모두가 행복한 하루 되세요!</textarea>
             <button id="processBtn">처리하기</button>
 
             <h2>미리보기</h2>
@@ -124,7 +126,6 @@
             const inputText = document.getElementById('inputText');
             const preview = document.getElementById('preview');
             const processBtn = document.getElementById('processBtn');
-            const exportBtn = document.getElementById('exportBtn');
             const redHighlightEnabled = document.getElementById('redHighlightEnabled');
             const blueHighlightEnabled = document.getElementById('blueHighlightEnabled');
 
@@ -137,63 +138,77 @@
             // 텍스트 처리 함수
             function processText() {
                 const text = inputText.value;
-                const words = text.split(/\s+/);
+                const lines = text.split('\n');
 
                 preview.innerHTML = '';
 
-                words.forEach(word => {
-                    if (word.length === 0) return;
+                // 각 줄 처리
+                lines.forEach((line, lineIndex) => {
+                    // 각 줄의 단어 처리
+                    const words = line.split(/\s+/);
 
-                    const wordSpan = document.createElement('span');
-                    wordSpan.className = 'word';
+                    words.forEach((word, wordIndex) => {
+                        if (word.length === 0) return;
 
-                    // 단어 처리
-                    for (let i = 0; i < word.length; i++) {
-                        const char = word[i];
-                        const charSpan = document.createElement('span');
-                        charSpan.textContent = char;
+                        const wordSpan = document.createElement('span');
+                        wordSpan.className = 'word';
 
-                        // 한글 자모 분리 (유니코드 활용)
-                        if (/[가-힣]/.test(char)) {
-                            const code = char.charCodeAt(0) - 0xAC00;
+                        // 단어 처리
+                        for (let i = 0; i < word.length; i++) {
+                            const char = word[i];
+                            const charSpan = document.createElement('span');
+                            charSpan.textContent = char;
 
-                            // 초성, 중성, 종성 분리
-                            const jong = code % 28;
-                            const jung = ((code - jong) / 28) % 21;
+                            // 한글 자모 분리 (유니코드 활용)
+                            if (/[가-힣]/.test(char)) {
+                                const code = char.charCodeAt(0) - 0xAC00;
 
-                            // 중성이 'ㅏ'인 경우 (유니코드에서 'ㅏ'는 첫 번째 중성)
-                            if (jung === 0 && redHighlightEnabled.checked) {
-                                charSpan.className = 'highlight-red';
+                                // 초성, 중성, 종성 분리
+                                const jong = code % 28;
+                                const jung = ((code - jong) / 28) % 21;
+
+                                // 중성이 'ㅏ'인 경우 (유니코드에서 'ㅏ'는 첫 번째 중성)
+                                if (jung === 0 && redHighlightEnabled.checked) {
+                                    charSpan.className = 'highlight-red';
+                                }
+
+                                // 종성이 'ㄴ', 'ㄹ', 'ㅇ', 'ㅁ'인 경우
+                                // 종성 코드: ㄴ=4, ㄹ=8, ㅁ=16, ㅇ=21
+                                if ((jong === 4 || jong === 8 || jong === 16 || jong === 21) && blueHighlightEnabled.checked) {
+                                    charSpan.className = 'highlight-blue';
+                                }
                             }
 
-                            // 종성이 'ㄴ', 'ㄹ', 'ㅇ', 'ㅁ'인 경우
-                            // 종성 코드: ㄴ=4, ㄹ=8, ㅁ=16, ㅇ=21
-                            if ((jong === 4 || jong === 8 || jong === 16 || jong === 21) && blueHighlightEnabled.checked) {
-                                charSpan.className = 'highlight-blue';
-                            }
+                            wordSpan.appendChild(charSpan);
                         }
 
-                        wordSpan.appendChild(charSpan);
+                        // 단어 클릭 이벤트
+                        wordSpan.addEventListener('click', function() {
+                            const existingCheckmark = this.querySelector('.checkmark');
+                            if (existingCheckmark) {
+                                this.removeChild(existingCheckmark);
+                            } else {
+                                const checkmark = document.createElement('span');
+                                checkmark.className = 'checkmark';
+                                checkmark.textContent = '✓';
+                                this.insertBefore(checkmark, this.firstChild);
+                            }
+                        });
+
+                        preview.appendChild(wordSpan);
+
+                        // 마지막 단어가 아니면 공백 추가
+                        if (wordIndex < words.length - 1) {
+                            preview.appendChild(document.createTextNode(' '));
+                        }
+                    });
+
+                    // 마지막 줄이 아니면 줄바꿈 추가
+                    if (lineIndex < lines.length - 1) {
+                        preview.appendChild(document.createElement('br'));
                     }
-
-                    // 단어 클릭 이벤트
-					wordSpan.addEventListener('click', function() {
-						const existingCheckmark = this.querySelector('.checkmark');
-						if (existingCheckmark) {
-							this.removeChild(existingCheckmark);
-						} else {
-							const checkmark = document.createElement('span');
-							checkmark.className = 'checkmark';
-							checkmark.textContent = '✓';
-							this.insertBefore(checkmark, this.firstChild);
-						}
-					});
-
-                    preview.appendChild(wordSpan);
-                    preview.appendChild(document.createTextNode(' '));
                 });
             }
-
         });
     </script>
 </body>
