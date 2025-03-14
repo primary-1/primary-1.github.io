@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,24 +13,30 @@
             align-items: center;
             padding: 20px;
         }
+
         .container {
             display: flex;
             width: 100%;
             max-width: 1000px;
             gap: 20px;
         }
-        .settings, .text-area {
+
+        .settings,
+        .text-area {
             border: 1px solid #ccc;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
         }
+
         .settings {
             width: 30%;
         }
+
         .text-area {
             width: 70%;
         }
+
         textarea {
             width: 100%;
             height: 200px;
@@ -39,6 +46,7 @@
             font-size: 16px;
             resize: vertical;
         }
+
         .preview {
             margin-top: 20px;
             padding: 15px;
@@ -46,20 +54,42 @@
             border-radius: 4px;
             min-height: 200px;
             white-space: pre-wrap;
+            user-select: text;
+            /* 선택 가능하게 설정 */
         }
+
         .highlight-red {
             background-color: rgba(255, 0, 0, 0.3);
         }
+
         .highlight-blue {
             background-color: rgba(0, 0, 255, 0.3);
         }
+
+        .wave-text {
+            font-style: italic;
+        }
+
         .settings-group {
             margin-bottom: 15px;
         }
+
+        .radio-group {
+            margin-bottom: 20px;
+            border: 1px solid #eee;
+            padding: 12px;
+            border-radius: 6px;
+        }
+
+        .radio-option {
+            margin-bottom: 8px;
+        }
+
         label {
             display: block;
             margin-bottom: 5px;
         }
+
         button {
             padding: 8px 15px;
             background-color: #4CAF50;
@@ -70,22 +100,25 @@
             font-size: 14px;
             margin-top: 10px;
         }
+
         button:hover {
             background-color: #45a049;
         }
+
         .checkmark {
             color: green;
             margin-right: 3px;
             font-weight: bold;
         }
+
         .word {
             position: relative;
             display: inline-block;
             margin-right: 5px;
-            cursor: pointer;
         }
     </style>
 </head>
+
 <body>
     <h1>한글 자음 하이라이터</h1>
 
@@ -107,6 +140,29 @@
                 </label>
             </div>
 
+            <div class="radio-group">
+                <h3>작동 모드</h3>
+                <div class="radio-option">
+                    <label>
+                        <input type="radio" name="operationMode" value="none" checked>
+                        없음
+                    </label>
+                </div>
+                <div class="radio-option">
+                    <label>
+                        <input type="radio" name="operationMode" value="checkmark">
+                        숨자리 체크 모드 (단어 클릭시 체크마크)
+                    </label>
+                </div>
+                <div class="radio-option">
+                    <label>
+                        <input type="radio" name="operationMode" value="wave">
+                        물결 모드 (드래그한 텍스트를 이탤릭체로 변환)
+                    </label>
+                </div>
+            </div>
+
+            <button id="resetEffectsBtn">모든 효과 초기화</button>
         </div>
 
         <div class="text-area">
@@ -114,7 +170,6 @@
             <textarea id="inputText" placeholder="여기에 한글 텍스트를 입력하세요...">안녕하세요. 오늘은 날씨가 참 좋네요.
 바람이 살랑살랑 불어서 기분이 상쾌합니다.
 모두가 행복한 하루 되세요!</textarea>
-            <button id="processBtn">처리하기</button>
 
             <h2>미리보기</h2>
             <div id="preview" class="preview"></div>
@@ -122,36 +177,108 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const inputText = document.getElementById('inputText');
             const preview = document.getElementById('preview');
-            const processBtn = document.getElementById('processBtn');
             const redHighlightEnabled = document.getElementById('redHighlightEnabled');
             const blueHighlightEnabled = document.getElementById('blueHighlightEnabled');
+            const resetEffectsBtn = document.getElementById('resetEffectsBtn');
+            const operationModes = document.getElementsByName('operationMode');
+
+            // 단어 요소 저장을 위한 전역 배열
+            let wordElements = [];
+
+            // 사용자가 추가한 효과 기록을 저장하는 객체
+            let userEffects = {
+                checkmarks: new Set(), // 체크마크가 있는 단어들
+                waveTexts: []         // 물결 효과가 적용된 텍스트 범위들
+            };
+
+            // 현재 작동 모드 가져오기
+            function getCurrentMode() {
+                for (const mode of operationModes) {
+                    if (mode.checked) {
+                        return mode.value;
+                    }
+                }
+                return 'none'; // 기본값
+            }
 
             // 초기 처리
-            processText();
+            processText(true);
 
-            // 처리하기 버튼 클릭 이벤트
-            processBtn.addEventListener('click', processText);
+            // 텍스트 입력 이벤트 - 실시간 처리
+            inputText.addEventListener('input', function () {
+                // 텍스트 변경 시 효과 기록 초기화 (텍스트가 변경되면 효과 위치도 달라짐)
+                userEffects.checkmarks.clear();
+                userEffects.waveTexts = [];
+                processText(true);
+            });
+
+            // 하이라이트 설정 변경 이벤트 - 효과 유지
+            redHighlightEnabled.addEventListener('change', function () {
+                processText(false); // 효과 유지 모드로 처리
+            });
+
+            blueHighlightEnabled.addEventListener('change', function () {
+                processText(false); // 효과 유지 모드로 처리
+            });
+
+            // 모든 효과 초기화 버튼 클릭 이벤트
+            resetEffectsBtn.addEventListener('click', function () {
+                // 체크마크 초기화
+                userEffects.checkmarks.clear();
+
+                // 물결 효과 초기화
+                userEffects.waveTexts = [];
+
+                // 화면 업데이트
+                processText(false);
+            });
 
             // 텍스트 처리 함수
-            function processText() {
+            function processText(resetEffects = false) {
                 const text = inputText.value;
                 const lines = text.split('\n');
 
+                // 기존 효과를 유지하기 위해 현재 상태 저장 (resetEffects가 false일 때)
+                if (!resetEffects) {
+                    saveCurrentEffects();
+                }
+
                 preview.innerHTML = '';
+                wordElements = []; // 단어 요소 배열 초기화
 
                 // 각 줄 처리
                 lines.forEach((line, lineIndex) => {
                     // 각 줄의 단어 처리
                     const words = line.split(/\s+/);
 
+                    let wordPositionInLine = 0;
+
                     words.forEach((word, wordIndex) => {
                         if (word.length === 0) return;
 
                         const wordSpan = document.createElement('span');
                         wordSpan.className = 'word';
+                        wordSpan.dataset.word = word; // 단어 데이터 저장
+                        wordSpan.dataset.line = lineIndex;
+                        wordSpan.dataset.position = wordPositionInLine;
+
+                        // 위치 정보를 id로 저장 (효과 복원 시 사용)
+                        const wordId = `word-${lineIndex}-${wordPositionInLine}`;
+                        wordSpan.id = wordId;
+
+                        // 체크마크 적용 (복원)
+                        if (userEffects.checkmarks.has(wordId)) {
+                            const checkmark = document.createElement('span');
+                            checkmark.className = 'checkmark';
+                            checkmark.textContent = '✓';
+                            wordSpan.appendChild(checkmark);
+                        }
+
+                        // 모든 단어 요소를 배열에 저장 (나중에 이벤트 리스너 부착용)
+                        wordElements.push(wordSpan);
 
                         // 단어 처리
                         for (let i = 0; i < word.length; i++) {
@@ -182,25 +309,14 @@
                             wordSpan.appendChild(charSpan);
                         }
 
-                        // 단어 클릭 이벤트
-                        wordSpan.addEventListener('click', function() {
-                            const existingCheckmark = this.querySelector('.checkmark');
-                            if (existingCheckmark) {
-                                this.removeChild(existingCheckmark);
-                            } else {
-                                const checkmark = document.createElement('span');
-                                checkmark.className = 'checkmark';
-                                checkmark.textContent = '✓';
-                                this.insertBefore(checkmark, this.firstChild);
-                            }
-                        });
-
                         preview.appendChild(wordSpan);
 
                         // 마지막 단어가 아니면 공백 추가
                         if (wordIndex < words.length - 1) {
                             preview.appendChild(document.createTextNode(' '));
                         }
+
+                        wordPositionInLine++;
                     });
 
                     // 마지막 줄이 아니면 줄바꿈 추가
@@ -208,8 +324,202 @@
                         preview.appendChild(document.createElement('br'));
                     }
                 });
+
+                // 물결 효과 복원
+                restoreWaveEffects();
+
+                // 이벤트 리스너 설정
+                setupEventListeners();
             }
+
+            // 현재 효과 상태 저장
+            function saveCurrentEffects() {
+                // 체크마크 상태 저장
+                userEffects.checkmarks.clear();
+                const checkmarkedWords = preview.querySelectorAll('.word .checkmark');
+                checkmarkedWords.forEach(mark => {
+                    const wordElement = mark.closest('.word');
+                    if (wordElement && wordElement.id) {
+                        userEffects.checkmarks.add(wordElement.id);
+                    }
+                });
+
+                // 물결 효과 상태 저장
+                userEffects.waveTexts = [];
+                const waveElements = preview.querySelectorAll('.wave-text');
+                waveElements.forEach(elem => {
+                    // 선택 범위 정보 저장
+                    userEffects.waveTexts.push({
+                        html: elem.innerHTML,
+                        outerHTML: elem.outerHTML
+                    });
+                });
+            }
+
+            // 물결 효과 복원
+            function restoreWaveEffects() {
+                if (userEffects.waveTexts.length === 0) return;
+
+                // 물결 효과 내용은 그대로 삽입
+                // 참고: 이 방법은 단순한 경우에 작동하지만, 복잡한 중첩 구조에서는 개선이 필요할 수 있음
+                const tempDiv = document.createElement('div');
+                userEffects.waveTexts.forEach(waveInfo => {
+                    // 미리보기에 물결 효과 요소 추가
+                    tempDiv.innerHTML = waveInfo.outerHTML;
+                    const waveElement = tempDiv.firstChild;
+                    preview.appendChild(waveElement.cloneNode(true));
+                });
+            }
+
+            // 이벤트 리스너 설정 함수
+            function setupEventListeners() {
+                // 현재 모드
+                const currentMode = getCurrentMode();
+
+                // 물결 모드 이벤트 리스너
+                preview.removeEventListener('mouseup', handleTextSelection);
+                if (currentMode === 'wave') {
+                    preview.addEventListener('mouseup', handleTextSelection);
+                }
+
+                // 단어 요소에 이벤트 리스너 추가
+                wordElements.forEach(wordElem => {
+                    // 이전 이벤트 리스너 제거 (모든 단어에서)
+                    wordElem.removeEventListener('click', handleCheckmarkClick);
+
+                    // 체크마크 모드일 경우 클릭 이벤트 추가
+                    if (currentMode === 'checkmark') {
+                        wordElem.style.cursor = 'pointer';
+                        wordElem.addEventListener('click', handleCheckmarkClick);
+                    } else {
+                        wordElem.style.cursor = 'auto';
+                    }
+                });
+            }
+
+            // 체크마크 클릭 처리 함수
+            function handleCheckmarkClick(event) {
+                // 이벤트가 이미 처리되었거나 모드가 체크마크가 아니면 리턴
+                if (event.isPropagationStopped || getCurrentMode() !== 'checkmark') return;
+
+                // 체크마크 토글
+                const existingCheckmark = this.querySelector('.checkmark');
+
+                if (existingCheckmark) {
+                    this.removeChild(existingCheckmark);
+                    // 효과 기록에서 제거
+                    if (this.id) {
+                        userEffects.checkmarks.delete(this.id);
+                    }
+                } else {
+                    const checkmark = document.createElement('span');
+                    checkmark.className = 'checkmark';
+                    checkmark.textContent = '✓';
+                    this.insertBefore(checkmark, this.firstChild);
+                    // 효과 기록에 추가
+                    if (this.id) {
+                        userEffects.checkmarks.add(this.id);
+                    }
+                }
+
+                // 이벤트가 중복 처리되지 않도록 플래그 설정
+                event.isPropagationStopped = true;
+            }
+
+            // 텍스트 선택(드래그) 처리 함수
+            function handleTextSelection(event) {
+                if (getCurrentMode() !== 'wave') return;
+
+                const selection = window.getSelection();
+                if (selection.toString().trim() === '') return;
+
+                const range = selection.getRangeAt(0);
+
+                // 선택 범위가 이미 wave-text 클래스를 가진 요소를 포함하는지 확인
+                let containsWaveText = false;
+                let waveTextParent = null;
+
+                // 선택 범위 내의 모든 노드 확인
+                const selectedNodes = getAllNodesInRange(range);
+                for (const node of selectedNodes) {
+                    // 노드나 부모가 wave-text 클래스를 가지는지 확인
+                    let current = node.nodeType === 1 ? node : node.parentNode;
+                    while (current && current !== preview) {
+                        if (current.classList && current.classList.contains('wave-text')) {
+                            containsWaveText = true;
+                            waveTextParent = current;
+                            break;
+                        }
+                        current = current.parentNode;
+                    }
+                    if (containsWaveText) break;
+                }
+
+                if (containsWaveText && waveTextParent) {
+                    // 이미 wave-text가 있다면, 선택된 텍스트의 wave-text를 제거
+                    unwrapWaveText(waveTextParent);
+
+                    // 효과 기록 업데이트
+                    saveCurrentEffects();
+                } else {
+                    // 새로운 wave-text 적용
+                    const selectionContents = range.extractContents();
+                    const span = document.createElement('span');
+                    span.className = 'wave-text';
+                    span.appendChild(selectionContents);
+                    range.insertNode(span);
+
+                    // 효과 기록 업데이트
+                    saveCurrentEffects();
+                }
+
+                // 선택 해제
+                selection.removeAllRanges();
+
+                // 모드 변경 후 단어 이벤트 리스너 재설정
+                setTimeout(setupEventListeners, 10);
+            }
+
+            // 범위 내의 모든 노드를 가져오는 함수
+            function getAllNodesInRange(range) {
+                const nodes = [];
+                const iterator = document.createNodeIterator(
+                    range.commonAncestorContainer,
+                    NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+                    { acceptNode: function (node) { return NodeFilter.FILTER_ACCEPT; } }
+                );
+
+                let currentNode;
+                while (currentNode = iterator.nextNode()) {
+                    if (range.intersectsNode(currentNode)) {
+                        nodes.push(currentNode);
+                    }
+                }
+
+                return nodes;
+            }
+
+            // wave-text 요소 언래핑 함수
+            function unwrapWaveText(waveTextElement) {
+                const parent = waveTextElement.parentNode;
+                while (waveTextElement.firstChild) {
+                    parent.insertBefore(waveTextElement.firstChild, waveTextElement);
+                }
+                parent.removeChild(waveTextElement);
+
+                // DOM 변경 후 이벤트 리스너 재설정
+                setTimeout(setupEventListeners, 10);
+            }
+
+            // 모드 변경 이벤트 처리
+            operationModes.forEach(mode => {
+                mode.addEventListener('change', function () {
+                    // 모드 변경 시 이벤트 리스너 설정 업데이트
+                    setupEventListeners();
+                });
+            });
         });
     </script>
 </body>
+
 </html>
